@@ -1,11 +1,6 @@
-use std::env;
-
 use rayon::prelude::*;
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let file_path = &args[1];
-    let file = std::fs::read(file_path).unwrap();
+pub fn entropy(file: Vec<u8>) {
     let symbol_count = file.len();
 
     let mut occurences: Vec<u32> =  vec![0; 256];
@@ -40,7 +35,7 @@ fn main() {
 
 
     let entropy: f32 = probability.par_iter().fold(|| 0., |e: f32, x| if *x == 0.0 {e} else {e - (x * x.log2())}).sum();
-    println!("{:?}", entropy);
+    println!("entropy: {:?}", entropy);
 
     let mut conditional_entropy = 0_f32;
     let mut tmp = 0_f32;
@@ -53,6 +48,5 @@ fn main() {
         conditional_entropy += probability[x] * tmp;
         tmp = 0.;
     }
-    println!("{:?}", conditional_entropy);
-
+    println!("conditional_entropy: {:?}", conditional_entropy);
 }
