@@ -49,4 +49,6 @@ pub fn entropy(file: Vec<u8>) {
         tmp = 0.;
     }
     println!("conditional_entropy: {:?}", conditional_entropy);
+
+    println!("diff: {:?}", entropy - conditional_entropy)
 }
