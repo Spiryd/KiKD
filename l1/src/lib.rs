@@ -33,7 +33,6 @@ pub fn entropy(file: Vec<u8>) {
     }
     //println!("{:?}", &conditional_probability);
 
-
     let entropy: f32 = probability.par_iter().fold(|| 0., |e: f32, x| if *x == 0.0 {e} else {e - (x * x.log2())}).sum();
     println!("entropy: {:?}", entropy);
 
