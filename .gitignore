@@ -4,4 +4,4 @@
 target/
 *.csv
 *.lock
-l1/test_cases/bee_movie_test_suite/
+bee_movie_test_suite/

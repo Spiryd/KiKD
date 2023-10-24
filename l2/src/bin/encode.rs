@@ -7,7 +7,7 @@ fn main() {
     let file_path = &args.get(1);
     match file_path {
         Some(file_path) => {
-            let file = std::fs::read(file_path).expect("msg");
+            let file = std::fs::read(file_path).unwrap();
             encode_arithmetic(&file);
         },
         None => panic!("Flie path not supplied"),
