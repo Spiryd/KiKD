@@ -1,29 +1,14 @@
-pub mod model_metrics;
-pub mod model;
+use std::collections::BinaryHeap;
+use std::collections::HashMap;
 
-use model::*;
-use model_metrics::*;
+use serde::{Deserialize, Serialize};
+
 use Bit::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Bit {
     Zero,
     One,
-}
-
-impl Bit {
-    fn other(&self) -> Self {
-        match self {
-            Bit::Zero => Bit::One,
-            Bit::One => Bit::Zero,
-        }
-    }
-    fn to_usize(self) -> usize {
-        match self {
-            Zero => 0,
-            One => 1,
-        }
-    }
 }
 
 impl Default for Bit {
@@ -34,7 +19,7 @@ impl Default for Bit {
 
 #[derive(Debug)]
 pub struct BitVec {
-    vec: Vec<u8>,
+    pub vec: Vec<u8>,
     inside_idx: usize,
     outside_idx: usize,
     inside_itr_couner: usize,
@@ -77,6 +62,24 @@ impl BitVec {
         }
     }
 
+    pub fn from_bytes(bytes: Vec<u8>) -> BitVec {
+        let mut x = [0_u8; 8];
+        for (i, b) in bytes.iter().take(8).enumerate() {
+            x[i] = *b;
+        }
+        let inside_idx = u64::from_be_bytes(x) as usize;
+        BitVec { vec: bytes.iter().skip(8).map(|x| *x).collect(), inside_idx, outside_idx: bytes.len() - 9, inside_itr_couner: 0, outside_itr_couner: 0 }
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        for b in self.inside_idx.to_be_bytes() {
+            output.push(b)
+        }
+        output.append(&mut self.vec.clone());
+        output
+    }
+
     fn push(&mut self, bit: Bit) {
         if self.inside_idx == 8 {
             self.inside_idx = 0;
@@ -91,137 +94,135 @@ impl BitVec {
     }
 }
 
-pub fn encode_arithmetic(file: &Vec<u8>) -> BitVec {
-    let mut high: usize = CODE_MAX;
-    let mut low: usize = 0;
-    let mut pending_bits = 0;
-    let mut model = Model::new();
-    let mut compresed = BitVec::new();
-    for c in file {
-        let c = if *c as i8 == -1 {
-            256
-        } else  {
-            *c as usize
+
+#[derive(Deserialize, Serialize)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
+pub enum HuffmanTree {
+    Node { freq: usize, left: Box<HuffmanTree>, right: Box<HuffmanTree> },
+    Leaf { value: u8, freq: usize },
+}
+
+impl HuffmanTree {
+    fn frequency(&self) -> usize {
+        match self {
+            HuffmanTree::Node { freq, .. } => *freq,
+            HuffmanTree::Leaf { freq, .. } => *freq,
+        }
+    }
+}
+
+fn build_huffman_tree(frequencies: &HashMap<u8, usize>) -> HuffmanTree {
+    let mut heap = BinaryHeap::new();
+
+    // Populate the heap with leaf nodes
+    for (&value, &freq) in frequencies.iter() {
+        heap.push(HuffmanTree::Leaf { value, freq });
+    }
+
+    // Build the Huffman tree by combining nodes until only one node is left
+    while heap.len() > 1 {
+        let left = heap.pop().unwrap();
+        let right = heap.pop().unwrap();
+        let combined_freq = left.frequency() + right.frequency();
+        let new_node = HuffmanTree::Node {
+            freq: combined_freq,
+            left: Box::new(left),
+            right: Box::new(right),
         };
+        heap.push(new_node);
+    }
+    // The last remaining node is the root of the Huffman tree
+    heap.pop().unwrap()
+}
+
+fn build_huffman_codes(tree: &HuffmanTree, code: &mut HashMap<u8, Vec<Bit>>, current_code: Vec<Bit>) {
+    match tree {
+        HuffmanTree::Node { left, right, .. } => {
+            let mut left_code = current_code.clone();
+            left_code.push(Zero);
+            build_huffman_codes(left, code, left_code);
+
+            let mut right_code = current_code.clone();
+            right_code.push(One);
+            build_huffman_codes(right, code, right_code);
+        }
+        HuffmanTree::Leaf { value, .. } => {
+            code.insert(*value, current_code);
+        }
+    }
+}
+
+fn encode_huffman(input: &[u8], codes: &HashMap<u8, Vec<Bit>>) -> BitVec {
+    let mut bitvec = BitVec::new();
+    for c in input {
+        for bit in &codes[c]{
+            bitvec.push(*bit);
+        }
         
-        let range = (high - low) + 1;
-        let p = model.prob(c);
-        high = low + (range * p.0) / p.2;
-        low += (range * p.1) / p.2;
-        loop {
-            if high < CODE_HALF {
-                //println!("{:?}", pending_bits);
-                output_bit_plus_pending(&mut compresed, Zero, pending_bits);
-                //println!("{:?}", pending_bits);
-            } else if low >= CODE_HALF {
-                //println!("{:?}", pending_bits);
-                output_bit_plus_pending(&mut compresed, One, pending_bits);
-                //println!("{:?}", pending_bits);
-            } else if low >= CODE_FIRST_QTR && high < CODE_THIRD_QTR {
-                pending_bits += 1;
-                low -= CODE_FIRST_QTR;
-                high -= CODE_FIRST_QTR;
-            } else {
-                break;
-            }
-            high <<= 1;
-            high += 1;
-            low <<= 1;
-            high &= CODE_MAX;
-            low &= CODE_MAX;
-        }
-        if c == 256 {
-            break;
-        }
     }
-    pending_bits += 1;
-    if low < CODE_FIRST_QTR{
-        output_bit_plus_pending(&mut compresed, One, pending_bits);
-    } else {
-        output_bit_plus_pending(&mut compresed, One, pending_bits);
-    }
-    compresed
+    bitvec
 }
 
-fn output_bit_plus_pending(bitvec: &mut BitVec, bit: Bit, mut pending_bits: usize) {
-    bitvec.push(bit);
-    while pending_bits > 0 {
-        bitvec.push(bit.other());
-        pending_bits -= 1;
+pub fn encode(file: &Vec<u8>) -> (BitVec, HuffmanTree) {
+    // Calculate character frequencies
+    let mut frequencies: HashMap<u8, usize> = HashMap::new();
+    for &value in file.iter() {
+        *frequencies.entry(value).or_insert(0) += 1;
     }
+
+    // Build the Huffman tree
+    let huffman_tree: HuffmanTree = build_huffman_tree(&frequencies);
+
+    // Build Huffman codes
+    let mut huffman_codes: HashMap<u8, Vec<Bit>> = HashMap::new();
+    match &huffman_tree.clone() {
+        HuffmanTree::Node { .. } => {build_huffman_codes(&huffman_tree, &mut huffman_codes, Vec::new());},
+        HuffmanTree::Leaf { value, .. } => {{huffman_codes.insert(*value, vec![Zero]);}},
+    }
+    let mut sum_code_len = 0;
+    for code in &huffman_codes {
+        sum_code_len += code.1.len();
+    }
+    println!("mean code length: {:?}", sum_code_len as f64/ huffman_codes.len() as f64);
+    // Encode form huffman code
+    (encode_huffman(file, &huffman_codes), huffman_tree)
 }
 
-pub fn decode(mut bitvec: BitVec) -> Vec<u8> {
-    let mut high = CODE_MAX;
-    let mut low = 0;
-    let mut value = 0;
-    for _ in 0..CODE_BITS {
-        value <<= 1;
-        value += bitvec.next().unwrap().to_usize();
-    }
-    let mut model  = Model::new();
-    let mut decompressed: Vec<u8> = Vec::new();
-    loop {
-        let range = high - low + 1;
-        let scaled_value = ((value - low + 1) * model.count() - 1 ) / range;
-        let (p, c) = model.get_char(scaled_value).unwrap();
-        if c  == 256 {
-            break;
-        }
-        decompressed.push(c as u8);
-        high = low + (range * p.1)/p.2 - 1;
-        low = low + (range * p.0)/p.2;
-        loop {
-            if high < CODE_HALF {
-                //do nothing, bit is a zero
-            } else if low >= CODE_HALF {
-                value -= CODE_HALF;  //subtract one half from all three code values
-                low -= CODE_HALF;
-                high -= CODE_HALF;
-            } else if low >= CODE_FIRST_QTR && high < CODE_THIRD_QTR {
-                value -= CODE_FIRST_QTR;
-                low -= CODE_FIRST_QTR;
-                high -= CODE_FIRST_QTR;
-            } else {
-                break;
+pub fn decode(encoded: BitVec, tree: &HuffmanTree) -> Vec<u8> {
+    let mut result = Vec::new();
+    let mut current_node = tree;
+    for bit in encoded {
+        match bit {
+            Zero => {
+                if let HuffmanTree::Node { left, .. } = current_node {
+                    current_node = left;
+                }
             }
-            low <<= 1;
-            high <<= 1;
-            high += 1;
-            value <<= 1;
-            //println!("{:?}, {:?}", bitvec.inside_idx, bitvec.inside_itr_couner);
-            //println!("{:?}, {:?}", bitvec.outside_idx, bitvec.outside_itr_couner);
-            value += bitvec.next().unwrap().to_usize();
+            One => {
+                if let HuffmanTree::Node { right, .. } = current_node {
+                    current_node = right;
+                }
+            }
         }
-        println!("{:?}", &decompressed);
+
+        if let HuffmanTree::Leaf { value, .. } = current_node {
+            result.push(*value);
+            current_node = tree; // Reset to the root for the next character
+        }
     }
-    decompressed
+    result
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Bit::{One, Zero};
     use super::*;
     #[test]
     fn encode_decode_test() {
-        let file = std::fs::read("test_cases/test3.bin").unwrap();
-        let encoded = encode_arithmetic(&file);
+        let file = std::fs::read("test_cases/test1.bin").unwrap();
+        let (encoded, key) = encode(&file);
         println!("{:?}", &encoded);
-        let decoded = decode(encoded);
-        println!("{:?}", &decoded);
-        //assert_eq!(file, decoded);
-    }
-
-    #[test]
-    fn bitvec_test() {
-        let mut vec = BitVec::new();
-        vec.push(One);
-        vec.push(Zero);
-        vec.push(One);
-        assert_eq!(vec.vec[0], 0xA0);
-        assert_eq!(vec.next().unwrap(), One);
-        assert_eq!(vec.next().unwrap(), Zero);
-        assert_eq!(vec.next().unwrap(), One);
-        //assert_eq!(vec.next(), None);
+        println!("{:?}", &key);
+        let decoded = decode(encoded, &key);
+        assert_eq!(file, decoded);
     }
 }
