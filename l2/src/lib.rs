@@ -5,21 +5,23 @@ use serde::{Deserialize, Serialize};
 
 use Bit::*;
 
+/// Enum symbolising bits
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Bit {
     Zero,
     One,
 }
 
-impl Default for Bit {
-    fn default() -> Self {
-        Zero
-    }
-}
-
+/// BitVector Implementation
+/// # Fields
+/// - `vec`: vector of bytes
+/// - `inside_idx`: index of the next bit to be pushed
+/// - `outside_idx`: index of the current byte
+/// - `inside_itr_couner`: index of the next bit to be outputed
+/// - `outside_itr_couner`: index of the current byte for iterateing
 #[derive(Debug)]
 pub struct BitVec {
-    pub vec: Vec<u8>,
+    vec: Vec<u8>,
     inside_idx: usize,
     outside_idx: usize,
     inside_itr_couner: usize,
@@ -38,20 +40,19 @@ impl Iterator for BitVec {
             self.outside_itr_couner = 0;
             return None;
         }
-        let output: Bit = if (self.vec[self.outside_itr_couner]
-            & (0x80 >> self.inside_itr_couner))
-            > 0
-        {
-            One
-        } else {
-            Zero
-        };
+        let output: Bit =
+            if (self.vec[self.outside_itr_couner] & (0x80 >> self.inside_itr_couner)) > 0 {
+                One
+            } else {
+                Zero
+            };
         self.inside_itr_couner += 1;
         Some(output)
     }
 }
 
 impl BitVec {
+    /// Creates a new [BitVec] with initialised first byte
     pub fn new() -> BitVec {
         BitVec {
             vec: vec![0],
@@ -61,16 +62,22 @@ impl BitVec {
             outside_itr_couner: 0,
         }
     }
-
+    /// Creates a [BitVec] from a vector of bytes having the first 8 bytes be the inside_idx
     pub fn from_bytes(bytes: Vec<u8>) -> BitVec {
         let mut x = [0_u8; 8];
         for (i, b) in bytes.iter().take(8).enumerate() {
             x[i] = *b;
         }
         let inside_idx = u64::from_be_bytes(x) as usize;
-        BitVec { vec: bytes.iter().skip(8).map(|x| *x).collect(), inside_idx, outside_idx: bytes.len() - 9, inside_itr_couner: 0, outside_itr_couner: 0 }
+        BitVec {
+            vec: bytes.iter().skip(8).map(|x| *x).collect(),
+            inside_idx,
+            outside_idx: bytes.len() - 9,
+            inside_itr_couner: 0,
+            outside_itr_couner: 0,
+        }
     }
-
+    /// Outputs a vector of bytes having the first 8 bytes be the inside_idx
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut output = Vec::new();
         for b in self.inside_idx.to_be_bytes() {
@@ -79,7 +86,7 @@ impl BitVec {
         output.append(&mut self.vec.clone());
         output
     }
-
+    /// Pushes the supplied `bit`:[Bit] to our vector
     fn push(&mut self, bit: Bit) {
         if self.inside_idx == 8 {
             self.inside_idx = 0;
@@ -94,15 +101,22 @@ impl BitVec {
     }
 }
 
-
-#[derive(Deserialize, Serialize)]
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
+/// Tree structure that works a key to encode and decode
+#[derive(Deserialize, Serialize, Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub enum HuffmanTree {
-    Node { freq: usize, left: Box<HuffmanTree>, right: Box<HuffmanTree> },
-    Leaf { value: u8, freq: usize },
+    Node {
+        freq: usize,
+        left: Box<HuffmanTree>,
+        right: Box<HuffmanTree>,
+    },
+    Leaf {
+        value: u8,
+        freq: usize,
+    },
 }
 
 impl HuffmanTree {
+    /// Outputs symbol frequency
     fn frequency(&self) -> usize {
         match self {
             HuffmanTree::Node { freq, .. } => *freq,
@@ -135,7 +149,11 @@ fn build_huffman_tree(frequencies: &HashMap<u8, usize>) -> HuffmanTree {
     heap.pop().unwrap()
 }
 
-fn build_huffman_codes(tree: &HuffmanTree, code: &mut HashMap<u8, Vec<Bit>>, current_code: Vec<Bit>) {
+fn build_huffman_codes(
+    tree: &HuffmanTree,
+    code: &mut HashMap<u8, Vec<Bit>>,
+    current_code: Vec<Bit>,
+) {
     match tree {
         HuffmanTree::Node { left, right, .. } => {
             let mut left_code = current_code.clone();
@@ -155,10 +173,9 @@ fn build_huffman_codes(tree: &HuffmanTree, code: &mut HashMap<u8, Vec<Bit>>, cur
 fn encode_huffman(input: &[u8], codes: &HashMap<u8, Vec<Bit>>) -> BitVec {
     let mut bitvec = BitVec::new();
     for c in input {
-        for bit in &codes[c]{
+        for bit in &codes[c] {
             bitvec.push(*bit);
         }
-        
     }
     bitvec
 }
@@ -176,14 +193,22 @@ pub fn encode(file: &Vec<u8>) -> (BitVec, HuffmanTree) {
     // Build Huffman codes
     let mut huffman_codes: HashMap<u8, Vec<Bit>> = HashMap::new();
     match &huffman_tree.clone() {
-        HuffmanTree::Node { .. } => {build_huffman_codes(&huffman_tree, &mut huffman_codes, Vec::new());},
-        HuffmanTree::Leaf { value, .. } => {{huffman_codes.insert(*value, vec![Zero]);}},
+        HuffmanTree::Node { .. } => {
+            build_huffman_codes(&huffman_tree, &mut huffman_codes, Vec::new());
+        }
+        HuffmanTree::Leaf { value, .. } => {
+            huffman_codes.insert(*value, vec![Zero]);
+        }
     }
+    // Calculate mean code length
     let mut sum_code_len = 0;
     for code in &huffman_codes {
         sum_code_len += code.1.len();
     }
-    println!("mean code length: {:?}", sum_code_len as f64/ huffman_codes.len() as f64);
+    println!(
+        "mean code length: {:?}",
+        sum_code_len as f64 / huffman_codes.len() as f64
+    );
     // Encode form huffman code
     (encode_huffman(file, &huffman_codes), huffman_tree)
 }
