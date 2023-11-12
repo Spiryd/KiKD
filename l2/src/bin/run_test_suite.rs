@@ -40,7 +40,7 @@ fn main() {
         let (encoded, key) = encode(&file);
         println!(
             "compression ratio: {:?}",
-            file.len() as f64 / encoded.to_bytes().len() as f64
+            file.len() as f64 / encoded.vec.len() as f64
         );
         let decoded = decode(encoded, &key);
         assert_eq!(file, decoded)

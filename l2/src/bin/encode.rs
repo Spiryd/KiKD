@@ -38,7 +38,7 @@ fn main() {
     let (encoded, tree) = encode(&file);
     println!(
         "compression ratio: {:?}",
-        file.len() as f64 / encoded.to_bytes().len() as f64
+        file.len() as f64 / encoded.vec.len() as f64
     );
 
     // Output encoded file

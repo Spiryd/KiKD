@@ -21,7 +21,7 @@ pub enum Bit {
 /// - `outside_itr_couner`: index of the current byte for iterateing
 #[derive(Debug)]
 pub struct BitVec {
-    vec: Vec<u8>,
+    pub vec: Vec<u8>,
     inside_idx: usize,
     outside_idx: usize,
     inside_itr_couner: usize,

@@ -11,7 +11,7 @@ fn main() {
         panic!("Wrong argument count")
     }
     let file_path = args.get(1).unwrap();
-    let output_file_path = args.get(2).unwrap();
+    let output_file_path = args.get(3).unwrap();
     let key_path = args.get(2).unwrap();
     let input_file = std::fs::read(file_path).unwrap();
     // Make bitvec form file

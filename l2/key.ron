@@ -1,0 +1,1 @@
+Node(freq:4,left:Leaf(value:97,freq:2),right:Node(freq:2,left:Leaf(value:99,freq:1),right:Leaf(value:98,freq:1)))
