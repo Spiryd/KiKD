@@ -12,6 +12,10 @@ fn main() {
     }
     let file_path = args.get(1).unwrap();
     let output_file_path = args.get(2).unwrap();
-    let file = std::fs::read(file_path).unwrap();
+    let file: Vec<u8> = std::fs::read(file_path).unwrap();
     let decoder = Decoder::new();
+    //decoder.decode(&file);
+    let mut output_file = File::create(output_file_path).unwrap();
+    output_file.write_all(&[]).unwrap();
+    todo!();
 }
