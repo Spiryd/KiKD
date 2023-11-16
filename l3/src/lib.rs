@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use rayon::prelude::*;
 
@@ -29,69 +29,78 @@ impl Encoder {
     pub fn new(encoding_type: EncodingType) -> Encoder{
         Encoder{encoding_type}
     }
-    pub fn encode(&self, encodee: &[u8]) -> (Vec<u16>, HashMap<String, u16>) {
-        let encodee_len = encodee.len();
-        let mut alphabet: HashSet<u8> = HashSet::new();
-        //encodee.iter().for_each(|c| {alphabet.insert(*c);});
-        for c in 0..255_u8 {
-            alphabet.insert(c);
-        }
-        let mut dictionary: HashMap<String, u16> = HashMap::new();
-        alphabet.iter().enumerate().for_each(|(v, k)| {dictionary.insert((*k as char).to_string(), v as u16);});
-        //println!("{:?}", &dictionary);
-        let mut code: usize = dictionary.len();
-        //println!("{:?}", &code);
-        let mut p: String = (encodee[0] as char).to_string();
-        let mut c: String = String::new();
-        //println!("{:?}", &p);
-        let mut out: Vec<u16> = Vec::new();
-        for i in 0..encodee_len {
-            if i != encodee_len - 1 {
-                c.push(encodee[i + 1] as char);
-            }
-            if dictionary.get(&(p.clone() + &c)).is_some() {
-                p += &c;
+    pub fn encode(&self, encodee: &[u8]) -> Vec<u16> {
+        let mut dictionary: HashMap<Vec<u8>, u16> = (0..256)
+            .map(|i| (vec![i as u8], i))
+            .collect();
+
+        let mut w = Vec::new();
+        let mut result = Vec::new();
+
+        for &b in encodee {
+            let mut wc = w.clone();
+            wc.push(b);
+
+            if dictionary.contains_key(&wc) {
+                w = wc;
             } else {
-                out.push(dictionary[&p]);
-                dictionary.insert(p + &c, code as u16);
-                code += 1;
-                p = c.clone();
+                result.push(dictionary[&w]);
+
+                dictionary.insert(wc, dictionary.len() as u16);
+                w.clear();
+                w.push(b);
             }
-            c.clear();
         }
-        out.push(dictionary[&p]);
-        (out, dictionary)
+
+        if !w.is_empty() {
+            result.push(dictionary[&w]);
+        }
+
+        result
     }
 }
 
-pub struct Decoder {
-
-}
+pub struct Decoder {}
 
 impl Decoder {
     pub fn new() -> Decoder{
         Decoder{}
     }
-    pub fn decode(&self, decodee: &[u16]) -> Vec<u8> {
-        let encodee_len = decodee.len();
-        let mut alphabet: HashSet<u8> = HashSet::new();
-        for c in 0..255_u8 {
-            alphabet.insert(c);
-        }
-        let mut dictionary: HashMap<u16, String> = HashMap::new();
-        alphabet.iter().enumerate().for_each(|(v, k)| {dictionary.insert(v as u16, (*k as char).to_string());});
-        let mut old  = decodee[0];
-        let mut n = 0;
-        let mut s: String = dictionary[&old].clone();
-        let mut c: String = String::new();
+    pub fn decode(&self, mut decodee: &[u16]) -> Vec<u8> {
+        let mut dictionary: HashMap::<u16, Vec<u8>> = (0..256)
+            .map(|i| (i, vec![i as u8]))
+            .collect();
 
-        todo!()
+        let mut w = dictionary[&decodee[0]].clone();
+        decodee = &decodee[1..];
+        let mut decompressed = w.clone();
+
+        for &k in decodee {
+            let entry = if dictionary.contains_key(&k) {
+                dictionary[&k].clone()
+            } else if k == dictionary.len() as u16 {
+                let mut entry = w.clone();
+                entry.push(w[0]);
+                entry
+            } else {
+                panic!("Invalid dictionary!");
+            };
+
+            decompressed.extend_from_slice(&entry);
+
+            w.push(entry[0]);
+            dictionary.insert(dictionary.len() as u16, w);
+
+            w = entry;
+        }
+
+        decompressed
     }
 }
 
 pub fn entropy(subject: &[u8]) -> f32 {
     let symbol_count = subject.len();
-    let mut occurences: Vec<u32> = vec![0; 256];
+    let mut occurences: Vec<u16> = vec![0; 256];
     for symbol in subject {
         occurences[*symbol as usize] += 1;
     }
@@ -114,12 +123,11 @@ mod tests {
     use crate::*;
 
     #[test]
-    fn encode_decode_test() {
-        let file = std::fs::read("test_cases/test1.bin").unwrap();
+    fn simple_encode_decode_test() {
+        let file = std::fs::read("test_cases/test1.txt").unwrap();
         let encoder = Encoder::default();
-        println!("{:?}",encoder.encode(&file).0);
         let decoder = Decoder::new();
-        assert_eq!(file, decoder.decode(&encoder.encode(&file).0))
+        assert_eq!(file, decoder.decode(&encoder.encode(&file)))
     }
 
     #[test]
