@@ -1,6 +1,8 @@
 use crate::bitvec::{Bit::*, *};
 
-#[derive(Debug, Clone, Copy)]
+pub const EOF: usize  = usize::MAX - 1;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CodingType {
     OMEGA,
     GAMMA,
@@ -45,7 +47,8 @@ impl CodingType {
 fn gamma_encode(encodee: &Vec<usize>) -> BitVec {
     let mut bitvec = BitVec::new();
     let mut binary_rep = Vec::new();
-    for &code in encodee {
+    
+    for code in encodee {
         let mut code = code + 1;
         binary_rep.clear();
         for _ in 0..(usize::BITS - 1 - code.leading_zeros()) {
@@ -77,17 +80,26 @@ fn gamma_decode(decodee: BitVec) -> Vec<usize> {
         while bit == Zero {
             counter += 1;
             idx += 1;
+            if idx >= decodee.len() - 1 {
+                break;
+            }
             bit = decodee[idx];
         }
         // outputng number
         current_symbol = 2_usize.pow(counter);
         for _ in 0..counter {
             idx += 1;
+            if idx >= decodee.len() - 1 {
+                break;
+            }
             bit = decodee[idx];
             counter -= 1;
             if bit == One {
                 current_symbol += 2_usize.pow(counter);
             }
+        }
+        if current_symbol - 1 == EOF {
+            break;
         }
         result.push(current_symbol - 1);
         // reseting and checking break condition
@@ -159,6 +171,9 @@ fn delta_decode(decodee: BitVec) -> Vec<usize> {
                 num |= 1;
             }
         }
+        if num - 1 == EOF {
+            break;
+        } 
         result.push(num - 1);
         idx += 1;
     }
@@ -194,6 +209,7 @@ fn omega_decode(decodee: BitVec) -> Vec<usize> {
     let mut result = Vec::new();
     let decodee = decodee.clone().to_vector_of_bits();
     let mut idx = 0;
+
     while idx < decodee.len() {
         let mut bit = decodee[idx];
         let mut num = 1;
@@ -211,6 +227,9 @@ fn omega_decode(decodee: BitVec) -> Vec<usize> {
                 bit = decodee[idx];
             }
         }
+        if num - 1 == EOF {
+            break;
+        } 
         result.push(num - 1);
         idx += 1;
     }

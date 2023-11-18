@@ -25,8 +25,11 @@ impl Encoder {
         Encoder { coding_type }
     }
     /// Implementation of LZW encodeing with the dictionary indices encoded via `coding_type`: [`CodeingType`] universal coding.
-    pub fn encode(&self, encodee: &[u8]) -> BitVec {
-        let indices = self._encode(encodee);
+    pub fn encode(&self, encodee: &[u8], file: bool) -> BitVec {
+        let mut indices = self._encode(encodee);
+        if self.coding_type != CodingType::FIB && file {
+            indices.push(EOF);
+        }
         self.coding_type.encoode(&indices)
     }
 
@@ -138,23 +141,46 @@ pub fn entropy(subject: &[u8]) -> f32 {
 #[cfg(test)]
 mod tests {
     use crate::{CodingType::*, *};
+    use std::fs;
+    use std::fs::File;
+    use std::io::Write;
 
     #[test]
     fn simple_encode_decode_test() {
-        let file = std::fs::read("test_cases/test0.bin").unwrap();
+        let file = fs::read("test_cases/test0.bin").unwrap();
         let encoder = Encoder::default();
         let decoder = Decoder::default();
-        assert_eq!(file, decoder.decode(encoder.encode(&file)))
+        assert_eq!(file, decoder.decode(encoder.encode(&file, false)))
     }
 
     #[test]
     fn different_coding_test() {
-        let file = std::fs::read("test_cases/test3.bin").unwrap();
+        let file = fs::read("test_cases/test3.bin").unwrap();
         for t in [GAMMA, DELTA, OMEGA, FIB] {
             println!("{:?}", &t);
             let encoder = Encoder::new(t);
             let decoder = Decoder::new(t);
-            assert_eq!(file, decoder.decode(encoder.encode(&file)))
+            assert_eq!(file, decoder.decode(encoder.encode(&file, false)))
+        }
+    }
+
+    #[test]
+    fn simulated_real_coding_test() {
+        let file = fs::read("test_cases/test0.bin").unwrap();
+        for t in [FIB, GAMMA, OMEGA, DELTA] {
+            println!("{:?}", &t);
+            let encoder = Encoder::new(t);
+            let encoding = encoder.encode(&file, true);
+
+            let mut tmp = File::create("tmp.bin").unwrap();
+
+            tmp.write_all(&encoding.to_bytes()).unwrap();
+
+            let decodee = fs::read("tmp.bin").unwrap();
+            let decoder = Decoder::new(t);
+            let dedcoded = decoder.decode(BitVec::from_bytes(decodee));
+            fs::remove_file("tmp.bin").unwrap();
+            assert_eq!(file, dedcoded)
         }
     }
 }

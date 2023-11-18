@@ -28,7 +28,7 @@ fn main() {
         println!("entropy: {:?}", entropy(&file));
 
         let encoder = Encoder::new(encoding_type);
-        let encoded = encoder.encode( &file);
+        let encoded = encoder.encode( &file, true);
 
         let mut output = File::create(output_file_path).unwrap();
         output.write_all(&encoded.to_bytes()).unwrap();
