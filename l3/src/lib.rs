@@ -1,38 +1,39 @@
 use std::collections::HashMap;
 
+pub use bitvec::BitVec;
 use rayon::prelude::*;
 
-pub enum EncodingType {
-    OMEGA,
-    GAMMA,
-    DELTA,
-    FIB
-}
+pub mod bitvec;
+mod universal;
 
-impl Default for EncodingType {
-    fn default() -> Self {
-        EncodingType::OMEGA
-    }
-}
+pub use universal::*;
 
 pub struct Encoder {
-    encoding_type: EncodingType,
+    coding_type: CodingType,
 }
 
 impl Default for Encoder {
     fn default() -> Self {
-        Self { encoding_type: Default::default() }
+        Self {
+            coding_type: Default::default(),
+        }
     }
 }
 
 impl Encoder {
-    pub fn new(encoding_type: EncodingType) -> Encoder{
-        Encoder{encoding_type}
+    pub fn new(coding_type: CodingType) -> Encoder {
+        Encoder { coding_type }
     }
-    pub fn encode(&self, encodee: &[u8]) -> Vec<u16> {
-        let mut dictionary: HashMap<Vec<u8>, u16> = (0..256)
-            .map(|i| (vec![i as u8], i))
-            .collect();
+    /// Implementation of LZW encodeing with the dictionary indices encoded via `coding_type`: [`CodeingType`] universal coding.
+    pub fn encode(&self, encodee: &[u8]) -> BitVec {
+        let indices = self._encode(encodee);
+        self.coding_type.encoode(&indices)
+    }
+
+    /// Implementation of LZW encodeing
+    fn _encode(&self, encodee: &[u8]) -> Vec<usize> {
+        let mut dictionary: HashMap<Vec<u8>, usize> =
+            (0..256).map(|i| (vec![i as u8], i)).collect();
 
         let mut w = Vec::new();
         let mut result = Vec::new();
@@ -46,7 +47,7 @@ impl Encoder {
             } else {
                 result.push(dictionary[&w]);
 
-                dictionary.insert(wc, dictionary.len() as u16);
+                dictionary.insert(wc, dictionary.len() as usize);
                 w.clear();
                 w.push(b);
             }
@@ -60,16 +61,31 @@ impl Encoder {
     }
 }
 
-pub struct Decoder {}
+pub struct Decoder {
+    coding_type: CodingType,
+}
+
+impl Default for Decoder {
+    fn default() -> Self {
+        Self {
+            coding_type: Default::default(),
+        }
+    }
+}
 
 impl Decoder {
-    pub fn new() -> Decoder{
-        Decoder{}
+    pub fn new(coding_type: CodingType) -> Decoder {
+        Decoder { coding_type }
     }
-    pub fn decode(&self, mut decodee: &[u16]) -> Vec<u8> {
-        let mut dictionary: HashMap::<u16, Vec<u8>> = (0..256)
-            .map(|i| (i, vec![i as u8]))
-            .collect();
+    /// Implementation of LZW decodein with the dictionary indices decoded via `coding_type`: [`CodeingType`] universal coding.
+    pub fn decode(&self, decodee: BitVec) -> Vec<u8> {
+        let indices = self.coding_type.decode(decodee);
+        self._decode(&indices)
+    }
+    /// Implementation of LZW decodeing
+    fn _decode(&self, mut decodee: &[usize]) -> Vec<u8> {
+        let mut dictionary: HashMap<usize, Vec<u8>> =
+            (0..256).map(|i| (i, vec![i as u8])).collect();
 
         let mut w = dictionary[&decodee[0]].clone();
         decodee = &decodee[1..];
@@ -78,7 +94,7 @@ impl Decoder {
         for &k in decodee {
             let entry = if dictionary.contains_key(&k) {
                 dictionary[&k].clone()
-            } else if k == dictionary.len() as u16 {
+            } else if k == dictionary.len() as usize {
                 let mut entry = w.clone();
                 entry.push(w[0]);
                 entry
@@ -89,7 +105,7 @@ impl Decoder {
             decompressed.extend_from_slice(&entry);
 
             w.push(entry[0]);
-            dictionary.insert(dictionary.len() as u16, w);
+            dictionary.insert(dictionary.len() as usize, w);
 
             w = entry;
         }
@@ -98,9 +114,10 @@ impl Decoder {
     }
 }
 
+/// Calculates Entropy of the `subject`
 pub fn entropy(subject: &[u8]) -> f32 {
     let symbol_count = subject.len();
-    let mut occurences: Vec<u16> = vec![0; 256];
+    let mut occurences: Vec<usize> = vec![0; 256];
     for symbol in subject {
         occurences[*symbol as usize] += 1;
     }
@@ -120,19 +137,24 @@ pub fn entropy(subject: &[u8]) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
+    use crate::{CodingType::*, *};
 
     #[test]
     fn simple_encode_decode_test() {
-        let file = std::fs::read("test_cases/test1.txt").unwrap();
+        let file = std::fs::read("test_cases/test0.bin").unwrap();
         let encoder = Encoder::default();
-        let decoder = Decoder::new();
-        assert_eq!(file, decoder.decode(&encoder.encode(&file)))
+        let decoder = Decoder::default();
+        assert_eq!(file, decoder.decode(encoder.encode(&file)))
     }
 
     #[test]
-    fn conversion_test() {
-        let x = 1_u16.to_be_bytes();
-        assert_eq!([0_u8, 1_u8], x);
+    fn different_coding_test() {
+        let file = std::fs::read("test_cases/test3.bin").unwrap();
+        for t in [GAMMA, DELTA, OMEGA, FIB] {
+            println!("{:?}", &t);
+            let encoder = Encoder::new(t);
+            let decoder = Decoder::new(t);
+            assert_eq!(file, decoder.decode(encoder.encode(&file)))
+        }
     }
 }

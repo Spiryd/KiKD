@@ -2,7 +2,7 @@ use std::env;
 use std::fs::File;
 use std::io::Write;
 
-use l3::{*, EncodingType::*};
+use l3::{*, CodingType::*};
 
 fn main() {
         // Take in and vaidate input
@@ -28,9 +28,8 @@ fn main() {
         println!("entropy: {:?}", entropy(&file));
 
         let encoder = Encoder::new(encoding_type);
-        let _encoded = encoder.encode( &file);
+        let encoded = encoder.encode( &file);
 
         let mut output = File::create(output_file_path).unwrap();
-        output.write_all(&[]).unwrap();
-        todo!();
+        output.write_all(&encoded.to_bytes()).unwrap();
 }
