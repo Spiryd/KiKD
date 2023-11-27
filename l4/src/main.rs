@@ -10,7 +10,8 @@ fn main() {
     for file_path in &test_files {
         println!("case: {}", &file_path[11..]);
         let img = Image::from_tga(file_path);
-        //println!("{:?}", &img);
+        println!("original image: ");
+        img.entropy();
         println!();
     }
 }
