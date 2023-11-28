@@ -4,9 +4,9 @@ type Pixel = [u8; 3];
 
 #[derive(Debug)]
 pub struct Image {
-    width: usize,
-    height: usize,
-    map: Vec<Vec<Pixel>>,
+    pub width: usize,
+    pub height: usize,
+    pub map: Vec<Vec<Pixel>>,
 }
 
 impl Image {
@@ -53,7 +53,36 @@ impl Image {
         println!("blues entropy: {}", entropy(&blues));
     }
 
-    pub fn predicton_1(&self) -> Vec<Vec<Pixel>> {
+    pub fn encode(&self, predictor: Predictor) -> (f32, f32, f32, f32) {
+        let prediction = match predictor {
+            Predictor::One => self.predicton_1(),
+            Predictor::Two => self.predicton_2(),
+            Predictor::Three => self.predicton_3(),
+            Predictor::Four => self.predicton_4(),
+            Predictor::Five => self.predicton_5(),
+            Predictor::Six => self.predicton_6(),
+            Predictor::Seven => self.predicton_7(),
+            Predictor::New => self.predicton_new(),
+        };
+        let diff = self.diff(prediction);
+        _entropy(diff)
+    }
+
+    pub fn diff(&self, prediction: Vec<Vec<Pixel>>) -> Vec<Vec<Pixel>> {
+        let mut diff: Vec<Vec<Pixel>> =
+            vec![vec![[0, 0, 0]; self.width]; self.height];
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let red_diff = self.map[y][x][0].abs_diff(prediction[y][x][0]);
+                let green_diff = self.map[y][x][1].abs_diff(prediction[y][x][1]);
+                let blue_diff = self.map[y][x][2].abs_diff(prediction[y][x][2]);
+                diff[y][x] =  [red_diff, green_diff, blue_diff];
+            }
+        }
+        diff
+    }
+
+    fn predicton_1(&self) -> Vec<Vec<Pixel>> {
         let mut prediction: Vec<Vec<Pixel>> =
             vec![vec![[0, 0, 0]; self.width]; self.height];
         for y in 0..self.height {
@@ -64,7 +93,7 @@ impl Image {
         prediction
     }
 
-    pub fn predicton_2(&self) -> Vec<Vec<Pixel>> {
+    fn predicton_2(&self) -> Vec<Vec<Pixel>> {
         let mut prediction: Vec<Vec<Pixel>> =
             vec![vec![[0, 0, 0]; self.width]; self.height];
         for y in 1..self.height {
@@ -75,7 +104,7 @@ impl Image {
         prediction
     }
 
-    pub fn predicton_3(&self) -> Vec<Vec<Pixel>> {
+    fn predicton_3(&self) -> Vec<Vec<Pixel>> {
         let mut prediction: Vec<Vec<Pixel>> =
             vec![vec![[0, 0, 0]; self.width]; self.height];
         for y in 1..self.height {
@@ -86,7 +115,7 @@ impl Image {
         prediction
     }
 
-    pub fn predicton_4(&self) -> Vec<Vec<Pixel>> {
+    fn predicton_4(&self) -> Vec<Vec<Pixel>> {
         let mut prediction: Vec<Vec<Pixel>> =
         vec![vec![[0, 0, 0]; self.width]; self.height];
         for x in 1..self.width {
@@ -106,7 +135,7 @@ impl Image {
         prediction
     }
 
-    pub fn predicton_5(&self) -> Vec<Vec<Pixel>> {
+    fn predicton_5(&self) -> Vec<Vec<Pixel>> {
         let mut prediction: Vec<Vec<Pixel>> =
         vec![vec![[0, 0, 0]; self.width]; self.height];
         for x in 1..self.width {
@@ -127,7 +156,7 @@ impl Image {
         prediction
     }
 
-    pub fn predicton_6(&self) -> Vec<Vec<Pixel>> {
+    fn predicton_6(&self) -> Vec<Vec<Pixel>> {
         let mut prediction: Vec<Vec<Pixel>> =
         vec![vec![[0, 0, 0]; self.width]; self.height];
         for x in 1..self.width {
@@ -148,7 +177,7 @@ impl Image {
         prediction
     }
 
-    pub fn predicton_7(&self) -> Vec<Vec<Pixel>> {
+    fn predicton_7(&self) -> Vec<Vec<Pixel>> {
         let mut prediction: Vec<Vec<Pixel>> =
         vec![vec![[0, 0, 0]; self.width]; self.height];
         for x in 1..self.width {
@@ -169,7 +198,7 @@ impl Image {
         prediction
     }
 
-    pub fn predicton_new(&self) -> Vec<Vec<Pixel>> {
+    fn predicton_new(&self) -> Vec<Vec<Pixel>> {
         let mut prediction: Vec<Vec<Pixel>> =
         vec![vec![[0, 0, 0]; self.width]; self.height];
         for y in 1..self.height {
@@ -204,6 +233,37 @@ impl Image {
         }
         prediction
     }
+}
+
+fn _entropy(subject: Vec<Vec<Pixel>>) -> (f32, f32, f32, f32) {
+    let mut reds = Vec::new();
+    let mut greens = Vec::new();
+    let mut blues = Vec::new();
+    let mut all = Vec::new();
+    for row in subject {
+        for pixel in row {
+            reds.push(pixel[0]);
+            greens.push(pixel[1]);
+            blues.push(pixel[2]);
+
+            all.push(pixel[0]);
+            all.push(pixel[1]);
+            all.push(pixel[2]);
+        }
+    }
+    (entropy(&all), entropy(&reds), entropy(&greens), entropy(&blues))
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Predictor {
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    New
 }
 
 /// Calculates Entropy of the `subject`
