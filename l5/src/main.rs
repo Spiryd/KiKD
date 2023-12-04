@@ -10,6 +10,8 @@ fn main() {
     }
     let file_path = args.get(1).unwrap();
     let output_file_path = args.get(2).unwrap();
-    let color_count: u8 = args.get(3).unwrap().parse().unwrap();
+    let color_count: usize = args.get(3).unwrap().parse().unwrap();
     let img = Image::from_tga(file_path);
+    let quantized = img.quantization(color_count);
+    
 }

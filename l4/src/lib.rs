@@ -42,12 +42,10 @@ impl Image {
                 greens.push(pixel[1]);
                 blues.push(pixel[2]);
 
-                all.push(pixel[0]);
-                all.push(pixel[1]);
-                all.push(pixel[2]);
+                all.push(*pixel);
             }
         }
-        println!("Image entropy: {}", entropy(&all));
+        println!("Image entropy: {}", entropy_pixels(&all));
         println!("red entropy: {}", entropy(&reds));
         println!("greens entropy: {}", entropy(&greens));
         println!("blues entropy: {}", entropy(&blues));
@@ -246,12 +244,10 @@ fn _entropy(subject: Vec<Vec<Pixel>>) -> (f32, f32, f32, f32) {
             greens.push(pixel[1]);
             blues.push(pixel[2]);
 
-            all.push(pixel[0]);
-            all.push(pixel[1]);
-            all.push(pixel[2]);
+            all.push(pixel);
         }
     }
-    (entropy(&all), entropy(&reds), entropy(&greens), entropy(&blues))
+    (entropy_pixels(&all), entropy(&reds), entropy(&greens), entropy(&blues))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -272,6 +268,27 @@ pub fn entropy(subject: &[u8]) -> f32 {
     let mut occurences: Vec<usize> = vec![0; 256];
     for symbol in subject {
         occurences[*symbol as usize] += 1;
+    }
+    let probability: Vec<f32> = occurences
+        .par_iter()
+        .map(|x| (*x as f32) / (symbol_count as f32))
+        .collect();
+    let entropy: f32 = probability
+        .par_iter()
+        .fold(
+            || 0.,
+            |e: f32, x| if *x == 0.0 { e } else { e - (x * x.log2()) },
+        )
+        .sum();
+    entropy
+}
+
+pub fn entropy_pixels(subject: &[Pixel]) -> f32 {
+    let size: usize = 255;
+    let symbol_count = subject.len();
+    let mut occurences: Vec<usize> = vec![0; 2usize.pow(24)];
+    for &[r, g, b] in subject {
+        occurences[(r as usize * size * size ) + (g as usize * size) + b as usize] += 1;
     }
     let probability: Vec<f32> = occurences
         .par_iter()

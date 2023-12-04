@@ -1,3 +1,6 @@
+use rand::prelude::*;
+use rand_pcg::Pcg64;
+
 type Pixel = [u8; 3];
 
 #[derive(Debug)]
@@ -27,5 +30,17 @@ impl Image {
             }
         }
         Image { width, height, map }
+    }
+    pub fn quantization(&self, cluster_count: usize) -> Vec<Vec<Pixel>> {
+        let mut points: Vec<Pixel> = Vec::new();
+        for row in &self.map {
+            for &pixel in row {
+                points.push(pixel);
+            }
+        }
+        let mut rng = Pcg64::from_entropy();
+        let clusters: Vec<Pixel> = points.choose_multiple(&mut rng, cluster_count).cloned().collect();
+
+        todo!()
     }
 }
