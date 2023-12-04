@@ -25,10 +25,10 @@ fn main() {
             green.push((format!("{:?}", predictor), entropies.2));
             blue.push((format!("{:?}", predictor), entropies.3));
         }
-        println!("Best all: {:?}", all.iter().max_by(|x, y| x.1.total_cmp(&y.1)).unwrap().0);
-        println!("Best red: {:?}", red.iter().max_by(|x, y| x.1.total_cmp(&y.1)).unwrap().0);
-        println!("Best green: {:?}", green.iter().max_by(|x, y| x.1.total_cmp(&y.1)).unwrap().0);
-        println!("Best blue: {:?}", blue.iter().max_by(|x, y| x.1.total_cmp(&y.1)).unwrap().0);
+        println!("Best all: {:?}", all.iter().max_by(|x, y| x.1.total_cmp(&y.1)).unwrap());
+        println!("Best red: {:?}", red.iter().max_by(|x, y| x.1.total_cmp(&y.1)).unwrap());
+        println!("Best green: {:?}", green.iter().max_by(|x, y| x.1.total_cmp(&y.1)).unwrap());
+        println!("Best blue: {:?}", blue.iter().max_by(|x, y| x.1.total_cmp(&y.1)).unwrap());
         println!();
     }
 }
