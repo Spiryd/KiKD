@@ -1,4 +1,6 @@
 use std::env;
+use std::fs::File;
+use std::io::Write;
 
 use l5::Image;
 fn main() {
@@ -10,6 +12,8 @@ fn main() {
     let output_file_path = args.get(2).unwrap();
     let color_count: usize = args.get(3).unwrap().parse().unwrap();
     let img = Image::from_tga(file_path);
-    let quantized = img.quantization(color_count);
-    
+    let codebook = img.quantization(color_count);
+    let quantized_img = img.codebook_to_tga(&codebook);
+    let mut output = File::create(output_file_path).unwrap();
+    output.write_all(&quantized_img).unwrap();
 }
