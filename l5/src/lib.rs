@@ -1,10 +1,6 @@
-
-
 mod pixel;
 
 use pixel::Pixel;
-
-const EPSILON: u8 = 3;
 
 #[derive(Debug)]
 pub struct Image {
@@ -47,7 +43,7 @@ impl Image {
         codebook.push(c_0);
         while codebook.len() < cluster_count {
             codebook = lgb(&training_vectors, &codebook);
-            println!("{:?}", &codebook);
+            //println!("{:?}", &codebook);
         }
         codebook
     }
@@ -55,10 +51,16 @@ impl Image {
         let vectors: Vec<Pixel> = self.map.iter().flatten().cloned().collect();
         let mut output = Vec::new();
         output.append(&mut self.header.clone());
-        for vector in vectors {
-            let coded = codebook.iter().min_by_key(|c| c.dist(&vector)).unwrap().to_bytes_rgb();
-            output.append(&mut coded.clone());
+        let mut out_vector = Vec::new();
+        for vector in &vectors {
+            let coded = codebook.iter().min_by_key(|c| c.dist(&vector)).unwrap();
+            out_vector.push(coded);
+            output.append(&mut coded.to_bytes_rgb());
         }
+        let mse: f64 = out_vector.iter().zip(vectors.iter()).map(|(original, out)| original.dist(out).pow(2) as f64).sum::<f64>() / vectors.len() as f64;
+        println!("MSE: {:?}", &mse);
+        let snr = (vectors.iter().map(|v| (v[0].pow(2) + v[1].pow(2) + v[2].pow(2)) as f64).sum::<f64>() / vectors.len() as f64) / mse;
+        println!("SNR: {:?}", &snr);
         output.append(&mut self.footer.clone());
         output
     }
@@ -93,7 +95,7 @@ fn lgb(training_vectors: &[Pixel], codebook: &Vec<Pixel>) -> Vec<Pixel> {
         for (idx, cluster) in clusters.iter().enumerate() {
             current_distortion += cluster.iter().map(|vector| new_codebook[idx].dist(vector)).sum::<usize>();
         }
-        if ((current_distortion as f64 - prev_distortion as f64)/current_distortion as f64).abs() < 0.001 {
+        if ((current_distortion as f64 - prev_distortion as f64)/current_distortion as f64).abs() < 0.0001 {
            break; 
         }
         prev_distortion = current_distortion;
