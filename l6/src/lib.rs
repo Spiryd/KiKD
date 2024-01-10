@@ -4,6 +4,8 @@ mod bitvec;
 use pixel::Pixel;
 use bitvec::*;
 
+
+
 fn add_pixel_mod(p0: Pixel, p1:Pixel) -> Pixel {
     Pixel::new(p0[0].wrapping_add(p1[0]), p0[1].wrapping_add(p1[1]), p0[2].wrapping_add(p1[2]))
 }
@@ -12,7 +14,6 @@ pub fn encode_from_tga(path: &str, bitoffset: u8) -> BitVec {
     let header: Vec<u8> = file[..18].iter().cloned().collect();
     let width = u16::from_le_bytes([file[12], file[13]]) as usize;
     let height = u16::from_le_bytes([file[14], file[15]]) as usize;
-    let footer: Vec<u8> = file[(3 * width * height + 18)..].iter().cloned().collect();
     println!("width: {}", &width);
     println!("height: {}", &height);
     let depth: u8 = file[16];
@@ -57,7 +58,7 @@ pub fn decode_from_bin(path: &str) -> Vec<u8> {
             match compressed_img.next().unwrap() {
                 Bit::Zero => {},
                 Bit::One => {
-                    r += 1 << n;
+                    r += 1 << (n + 8 - bitoffset);
                 },
             }
         }
@@ -66,7 +67,7 @@ pub fn decode_from_bin(path: &str) -> Vec<u8> {
             match compressed_img.next().unwrap() {
                 Bit::Zero => {},
                 Bit::One => {
-                    g += 1 << n;
+                    g += 1 << (n + 8 - bitoffset);
                 },
             }
         }
@@ -75,7 +76,7 @@ pub fn decode_from_bin(path: &str) -> Vec<u8> {
             match compressed_img.next().unwrap() {
                 Bit::Zero => {},
                 Bit::One => {
-                    b += 1 << n;
+                    b += 1 << (n + 8 - bitoffset);
                 },
             }
         }
@@ -88,4 +89,23 @@ pub fn decode_from_bin(path: &str) -> Vec<u8> {
     out_file.extend(header);
     out_file.extend(decompressed_img);
     out_file
+}
+
+pub fn get_errors(path0: &str, path1: &str) {
+    let file0 = std::fs::read(path0).unwrap();
+    let file1 = std::fs::read(path1).unwrap();
+    let map0 = &file0[18..];
+    let map1 = &file1[18..];
+    let mut img0 = Vec::new();
+    let mut img1 = Vec::new();
+    for color_value in map0.chunks(3) {
+        img0.push(Pixel::new(color_value[0], color_value[1], color_value[2]));
+    }
+    for color_value in map1.chunks(3) {
+        img1.push(Pixel::new(color_value[0], color_value[1], color_value[2]));
+    }
+    let mse: f64 = img1.iter().zip(img0.iter()).map(|(original, out)| original.dist(out).pow(2) as f64).sum::<f64>() / img0.len() as f64;
+    println!("MSE: {:?}", &mse);
+    let snr = (img0.iter().map(|v| (v[0].pow(2) + v[1].pow(2) + v[2].pow(2)) as f64).sum::<f64>() / img0.len() as f64) / mse;
+    println!("SNR: {:?}", &snr);
 }
