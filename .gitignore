@@ -6,3 +6,4 @@ target/
 *.lock
 bee_movie_test_suite/
 .vscode/
+tmp.*
