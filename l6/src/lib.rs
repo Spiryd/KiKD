@@ -106,6 +106,12 @@ pub fn get_errors(path0: &str, path1: &str) {
     }
     let mse: f64 = img1.iter().zip(img0.iter()).map(|(original, out)| original.dist(out).pow(2) as f64).sum::<f64>() / img0.len() as f64;
     println!("MSE: {:?}", &mse);
-    let snr = (img0.iter().map(|v| (v[0].pow(2) + v[1].pow(2) + v[2].pow(2)) as f64).sum::<f64>() / img0.len() as f64) / mse;
+    let r: f64 = img1.iter().zip(img0.iter()).map(|(original, out)| original[0].abs_diff(out[0]).pow(2) as f64).sum::<f64>() / img0.len() as f64;
+    println!("MSE r: {:?}", &r);
+    let g: f64 = img1.iter().zip(img0.iter()).map(|(original, out)| original[1].abs_diff(out[1]).pow(2) as f64).sum::<f64>() / img0.len() as f64;
+    println!("MSE g: {:?}", &g);
+    let b: f64 = img1.iter().zip(img0.iter()).map(|(original, out)| original[2].abs_diff(out[2]).pow(2) as f64).sum::<f64>() / img0.len() as f64;
+    println!("MSE b: {:?}", &b);
+    let snr = (img0.iter().map(|v| ((v[0] as f64).powi(2) + (v[1] as f64).powi(2) + (v[2] as f64).powi(2)) as f64).sum::<f64>() / img0.len() as f64) / mse;
     println!("SNR: {:?}", &snr);
 }
