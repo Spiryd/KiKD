@@ -70,18 +70,6 @@ impl Pixel {
     pub fn dist(&self, other: &Pixel) -> usize{
         self[0].abs_diff(other[0]) as usize + self[1].abs_diff(other[1]) as usize  + self[2].abs_diff(other[2]) as usize
     }
-    pub fn perturbation(&self, epsilon: u8) -> (Pixel, Pixel) {
-        let r = (self[0].saturating_add(epsilon), self[0].saturating_sub(epsilon));
-        let g = (self[1].saturating_add(epsilon), self[1].saturating_sub(epsilon));
-        let b = (self[2].saturating_add(epsilon), self[2].saturating_sub(epsilon));
-        (Pixel::new(r.0, g.0, b.0), Pixel::new(r.1, g.1, b.1))
-    }
-    pub fn to_bytes_rgb(&self) -> Vec<u8> {
-        vec![self[0], self[1], self[2]]
-    }
-    pub fn to_bytes_brg(&self) -> Vec<u8> {
-        vec![self[2], self[1], self[0]]
-    }
 }
 
 impl Default for Pixel {
