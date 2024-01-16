@@ -14,16 +14,24 @@ fn main() {
     let input_file = BitVec::from_bytes(std::fs::read(input_file_path).unwrap());
     let mut output_file = File::create(output_file_path).unwrap();
     let mut packet = Vec::new();
-    let mut encodeing = BitVec::new();
+    let mut decoding = BitVec::new();
+    let mut uncorrectable = 0;
     for bit in input_file {
         packet.push(bit);
-        if packet.len() == 4 {
-            let res = hamming_encoding(packet.clone()).unwrap();
+        if packet.len() == 8 {
+            let res = match hamming_decoding(packet.clone()) {
+                Ok(bitvec) => bitvec,
+                Err(option) => {
+                    uncorrectable += 1;
+                    option.unwrap()
+                }
+            };
             for bit in res {
-                encodeing.push(bit);
+                decoding.push(bit);
             }
             packet.clear();
         }
     }
-    output_file.write_all(&encodeing.to_bytes()).unwrap();
+    println!("Uncorrectable Errors: {}", uncorrectable);
+    output_file.write_all(&decoding.to_bytes()).unwrap();
 }
